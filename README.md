@@ -1,7 +1,7 @@
 # GADS: Group-wise Attribution Distribution Shift
 
 Reproduction package for *Bridging explainable AI and device matching: root cause localization
-via group-wise attribution distribution shift*. arXiv link to be added upon posting.
+via group-wise attribution distribution shift*.
 
 GADS ranks **candidate** process contributors for equipment-level root cause localization in
 discrete manufacturing. It fits a global KPI (quality label) model, computes cross-fitted SHAP
