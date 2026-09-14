@@ -1,16 +1,19 @@
-# shap_diff_analysis — GADS reproducibility package
+# GADS: Group-wise Attribution Distribution Shift
 
-Reference implementation and experiment code for **GADS** (*Group-wise Attribution Distribution
-Shift*), a method for equipment-level candidate root-cause localization in discrete manufacturing,
-plus the full set of baselines, scenarios and scripts needed to reproduce the reported results.
+Reproduction package for *Bridging explainable AI and device matching: root cause localization
+via group-wise attribution distribution shift*. arXiv link to be added upon posting.
 
-The method fits a global KPI (quality label) model, computes cross-fitted SHAP attributions,
-groups them by equipment (EQP), and scores process features by the **distribution distance**
+GADS ranks **candidate** process contributors for equipment-level root cause localization in
+discrete manufacturing. It fits a global KPI (quality label) model, computes cross-fitted SHAP
+attributions, groups them by equipment (EQP), and scores process features by the **distribution distance**
 between the abnormal equipment's attribution distribution and a reference pool of healthy
 equipment (Wasserstein by default). The output is a ranked list of **model-dependent candidate**
 process contributors for engineering follow-up. It is a screening/ranking layer, not a causal
 proof: when a run also injects harmless physical drift, those drift features can still reach the
 top ranks, so a high rank is a candidate to investigate rather than a verified root cause.
+
+Alongside the method, the package ships the baselines, scenario generators and experiment
+scripts used in the paper.
 
 This repository is a **code-only** export. It ships source, scripts and tests, but no experiment
 results and no `results/paper_final` archive. Every dataset bundle, manifest and result table
