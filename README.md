@@ -1,18 +1,21 @@
 # shap_diff_analysis — GADS reproducibility package
 
-Reference implementation and experiment code for **GADS** (*Grouped Attribution Distribution
-Shift*), a method for equipment-level root-cause localization in discrete manufacturing, plus
-the full set of baselines, scenarios and scripts needed to reproduce the reported results.
+Reference implementation and experiment code for **GADS** (*Group-wise Attribution Distribution
+Shift*), a method for equipment-level candidate root-cause localization in discrete manufacturing,
+plus the full set of baselines, scenarios and scripts needed to reproduce the reported results.
 
 The method fits a global KPI (quality label) model, computes cross-fitted SHAP attributions,
 groups them by equipment (EQP), and scores process features by the **distribution distance**
 between the abnormal equipment's attribution distribution and a reference pool of healthy
-equipment (Wasserstein by default). The output is a ranked list of candidate process root
-causes, with a built-in distinction between a genuine mechanism shift and a harmless physical
-drift.
+equipment (Wasserstein by default). The output is a ranked list of **model-dependent candidate**
+process contributors for engineering follow-up. It is a screening/ranking layer, not a causal
+proof: when a run also injects harmless physical drift, those drift features can still reach the
+top ranks, so a high rank is a candidate to investigate rather than a verified root cause.
 
-This repository is a **code-only** export. Manuscript sources, patents and private archives are
-not included; see `README` scope notes below.
+This repository is a **code-only** export. It ships source, scripts and tests, but no experiment
+results and no `results/paper_final` archive. Every dataset bundle, manifest and result table
+referenced below is produced by the commands in this README and is regenerable; manuscript
+sources, patents and private archives are not included.
 
 ---
 
@@ -41,15 +44,16 @@ produces three ranking views:
 
 | Scenario | Description | Root cause | Harmless drift | Metric scope |
 | --- | --- | --- | --- | --- |
-| `S1` | Parameter drift | — (distribution shift only) | not injected | MRR / HR@K / FAR@K |
-| `S2` | Mechanism shift | injected mechanism fault | not injected | MRR / HR@K / FAR@K |
-| `S3` | Mixed faults | multiple concurrent faults | not injected | MRR / HR@K / FAR@K |
-| `S4-main` | Root cause + harmless drift | one real mechanism root cause | 10 harmless features | MRR / HR@K / FAR@K |
+| `S1` | Parameter drift | injected KPI-linked parameter drift | not injected | MRR / HR@K |
+| `S2` | Mechanism shift | injected mechanism fault | not injected | MRR / HR@K |
+| `S3` | Mixed faults | multiple concurrent injected faults | not injected | MRR / HR@K |
+| `S4-main` | Root cause + harmless drift | one real KPI-linked mechanism root cause | 10 harmless features | MRR / HR@K / FAR@K |
 | `S4-null` | Negative control | none (`root_causes` empty) | injected | FAR@K only (MRR/HR@K are `NaN`, never reported as 0) |
 
 `S4-main` and `S4-null` are the pair that separates true root causes from harmless physical
 drift: an ideal method keeps a high MRR on `S4-main` while keeping FAR@K low on `S4-null`.
-For `S1`–`S3` no harmless drift is injected, so FAR@K is undefined (`NaN`) there.
+FAR@K is only defined where harmless drift is injected (`S4-main`, `S4-null`); for `S1`–`S3` no
+harmless feature is injected, so FAR@K is undefined (`NaN`) and is not reported.
 
 ### Methods
 
@@ -379,10 +383,11 @@ in [Section 9](#9-reproducing-the-paper). The builder fails explicitly (no fallb
 
 ### Protocol card
 
-Common settings: `model_seed 42`, `cv_splits 5`, top-K = 1/3/5, GADS `wasserstein` distance with
-50 bins and epsilon `1e-10` (G3 varies the distance), `eqp_mode contextual_process`,
-`auc_threshold null` (OOF `kpi_auc` recorded, no configured gate), `exclude_invalid_auc true`,
-PSI bins 10. The **primary metric view is `process`**.
+Common settings: `model_seed 42`, `cv_seed` unset (falls back to `model_seed`, i.e. `42`, so the
+cross-fitting fold seed is fixed and reproducible), `cv_splits 5`, top-K = 1/3/5, GADS
+`wasserstein` distance with 50 bins and epsilon `1e-10` (G3 varies the distance),
+`eqp_mode contextual_process`, `auc_threshold null` (OOF `kpi_auc` recorded, no configured gate),
+`exclude_invalid_auc true`, PSI bins 10. The **primary metric view is `process`**.
 
 Dataset A defaults: `n_samples 5000` in the main matrices, `noise 0.2`, `n_devices 10`,
 `distribution_shift 3.0`, `mechanism_scale 1.0`, `harmless_drift 3.5`.
@@ -397,21 +402,24 @@ standardized units) `physical_shift 3.0`, `mechanism_weight 12.0`, `harmless_shi
 ### Main matrices (4 × 100 runs)
 
 ```bash
-SEEDS20="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
-SEEDS10="0 1 2 3 4 5 6 7 8 9"
-SEEDS5="0 1 2 3 4"
+# Seed lists are shell arrays, so "${SEEDS[@]}" expands to separate arguments under both bash
+# and zsh. A bare unquoted "$SEEDS20" string would NOT word-split under zsh (the default shell
+# on macOS) and would be passed as one joined argument. Run these blocks with bash or zsh.
+SEEDS20=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)
+SEEDS10=(0 1 2 3 4 5 6 7 8 9)
+SEEDS5=(0 1 2 3 4)
 
 uv run python scripts/run_experiment_matrix.py \
-  --output results/paper_final/matrix_a_xgb --datasets dataset_a --seeds $SEEDS20 \
+  --output results/paper_final/matrix_a_xgb --datasets dataset_a --seeds "${SEEDS20[@]}" \
   --dataset-a-n-samples 5000 --model-type xgboost
 uv run python scripts/run_experiment_matrix.py \
-  --output results/paper_final/matrix_a_lgbm --datasets dataset_a --seeds $SEEDS20 \
+  --output results/paper_final/matrix_a_lgbm --datasets dataset_a --seeds "${SEEDS20[@]}" \
   --dataset-a-n-samples 5000 --model-type lightgbm
 uv run python scripts/run_experiment_matrix.py \
-  --output results/paper_final/matrix_b_xgb --datasets dataset_b --seeds $SEEDS20 \
+  --output results/paper_final/matrix_b_xgb --datasets dataset_b --seeds "${SEEDS20[@]}" \
   --model-type xgboost --no-dataset-b-include-missing-indicators --min-child-weight 5 --max-depth 3
 uv run python scripts/run_experiment_matrix.py \
-  --output results/paper_final/matrix_b_lgbm --datasets dataset_b --seeds $SEEDS20 \
+  --output results/paper_final/matrix_b_lgbm --datasets dataset_b --seeds "${SEEDS20[@]}" \
   --model-type lightgbm --no-dataset-b-include-missing-indicators --min-child-weight 5 --max-depth 3
 
 for d in a_xgb a_lgbm b_xgb b_lgbm; do
@@ -424,7 +432,7 @@ done
 ```bash
 for dist in wasserstein mean kl js; do
   uv run python scripts/run_sensitivity_sweep.py --output results/paper_final/g3_${dist} \
-    --factors mechanism_scale --scenarios S2 --seeds $SEEDS10 --n-samples 5000 \
+    --factors mechanism_scale --scenarios S2 --seeds "${SEEDS10[@]}" --n-samples 5000 \
     --gads-distance ${dist} --method GADS
 done
 ```
@@ -432,22 +440,53 @@ done
 Merge the four per-distance `sensitivity_results.parquet` files into
 `results/paper_final/g3_distance_intensity/g3_distance_intensity_merged.parquet` with an added
 `distance` column (240 rows = 4 distances × 6 levels × 10 seeds); that merged table is what
-`build_isa_figures.py` and `--fig-types g3` consume.
+`build_isa_figures.py` and `--fig-types g3` consume. Keep every original column: the consumers
+require at least `distance`, `level`, `method` and `mrr`, and the snippet below adds only
+`distance` while preserving the rest of the schema.
+
+```bash
+uv run python - <<'PY'
+from pathlib import Path
+
+import pandas as pd
+
+root = Path("results/paper_final")
+frames = []
+for distance in ("wasserstein", "mean", "kl", "js"):
+    frame = pd.read_parquet(root / f"g3_{distance}" / "sensitivity_results.parquet")
+    if "distance" in frame.columns:
+        raise ValueError(f"g3_{distance} already carries a 'distance' column")
+    frame.insert(0, "distance", distance)
+    frames.append(frame)
+
+merged = pd.concat(frames, ignore_index=True)
+n_levels = frames[0]["level"].nunique()
+n_seeds = frames[0]["seed"].nunique()
+expected = len(frames) * n_levels * n_seeds
+if len(merged) != expected:
+    raise ValueError(f"expected {expected} rows, got {len(merged)}")
+
+out = root / "g3_distance_intensity" / "g3_distance_intensity_merged.parquet"
+out.parent.mkdir(parents=True, exist_ok=True)
+merged.to_parquet(out, index=False)
+print(out, merged.shape)
+PY
+```
 
 ### G5 — single-factor sensitivity (Dataset A, seeds 0–9)
 
 ```bash
 # main sweep: six factors, base n = 1000, scenarios S1+S2, GADS / Wasserstein-X / Global-SHAP
 uv run python scripts/run_sensitivity_sweep.py --output results/paper_final/g5_sensitivity/all \
-  --seeds $SEEDS10 --n-samples 1000 \
+  --seeds "${SEEDS10[@]}" --n-samples 1000 \
   --method GADS --method Wasserstein-X --method Global-SHAP
 
 # n_devices controls keeping 100 rows/device (n_samples = 100 x n_devices)
 uv run python scripts/run_sensitivity_sweep.py --output results/paper_final/g5_sensitivity/ndev_ctrl_15 \
-  --factors n_devices --levels n_devices=15 --n-samples 1500 --seeds $SEEDS10 \
+  --factors n_devices --levels n_devices=15 --n-samples 1500 --seeds "${SEEDS10[@]}" \
   --method GADS --method Wasserstein-X --method Global-SHAP
 uv run python scripts/run_sensitivity_sweep.py --output results/paper_final/g5_sensitivity/ndev_ctrl_20 \
-  --factors n_devices --levels n_devices=20 --n-samples 2000 --seeds $SEEDS10 \
+  --factors n_devices --levels n_devices=20 --n-samples 2000 --seeds "${SEEDS10[@]}" \
   --method GADS --method Wasserstein-X --method Global-SHAP
 ```
 
@@ -456,7 +495,7 @@ uv run python scripts/run_sensitivity_sweep.py --output results/paper_final/g5_s
 ```bash
 for gs in 2025 2026 2027 2028; do
   uv run python scripts/run_experiment_matrix.py --output results/paper_final/g6_group_seeds/groupseed_${gs} \
-    --datasets dataset_b --scenarios S2 S4-main S4-null --seeds $SEEDS5 \
+    --datasets dataset_b --scenarios S2 S4-main S4-null --seeds "${SEEDS5[@]}" \
     --model-type xgboost --no-dataset-b-include-missing-indicators \
     --min-child-weight 5 --max-depth 3 --dataset-b-group-seed ${gs}
 done
@@ -469,13 +508,13 @@ done
 ```bash
 # modern baselines, Dataset A (GADS + M2OE-Group + XPE, default M2OE cap 128)
 uv run python scripts/run_experiment_matrix.py --output results/paper_final/modern_baselines_a \
-  --datasets dataset_a --seeds $SEEDS20 --dataset-a-n-samples 5000 --model-type xgboost \
+  --datasets dataset_a --seeds "${SEEDS20[@]}" --dataset-a-n-samples 5000 --model-type xgboost \
   --method GADS --method M2OE-Group --method XPE
 
 # modern baselines, Dataset B per scenario (cap 64)
 for scen in S1 S2 S3 S4-main S4-null; do
   uv run python scripts/run_experiment_matrix.py --output results/paper_final/modern_baselines_b/${scen} \
-    --datasets dataset_b --scenarios ${scen} --seeds $SEEDS10 \
+    --datasets dataset_b --scenarios ${scen} --seeds "${SEEDS10[@]}" \
     --no-dataset-b-include-missing-indicators --min-child-weight 5 --max-depth 3 \
     --model-type xgboost --method GADS --method M2OE-Group --method XPE --m2oe-max-group-rows 64 &
 done
@@ -485,7 +524,7 @@ wait
 # eqp-matrix is Dataset A only, so run the three modes against Dataset B explicitly:
 for mode in contextual_process no_eqp all_features; do
   uv run python scripts/run_experiment_matrix.py --output results/paper_final/eqp_ablation_b/${mode} \
-    --datasets dataset_b --scenarios S2 --seeds $SEEDS5 --eqp-mode ${mode} \
+    --datasets dataset_b --scenarios S2 --seeds "${SEEDS5[@]}" --eqp-mode ${mode} \
     --model-type xgboost --no-dataset-b-include-missing-indicators \
     --min-child-weight 5 --max-depth 3 --method GADS
 done
@@ -496,35 +535,15 @@ job per scenario; everything else runs sequentially.
 
 ### Runtime
 
-Reproduction is **hours, not minutes**, and `summarize_results.py` / `plot_paper_figs.py` are
-fast (seconds) once the matrices exist. Single-run wall-clock measured on an Apple M3 (8 cores,
-24 GB RAM, Python 3.11, runs sequential):
-
-| Configuration | One run |
-| --- | --- |
-| Dataset A, n=5000, cv=5, six classical methods, XGBoost | ~32 s |
-| Dataset A, n=5000, cv=5, six classical methods, LightGBM | ~14 s |
-| Dataset A, n=5000, cv=5, GADS only, XGBoost | ~20 s |
-| Dataset B, cv=5, six classical methods, XGBoost (paper B protocol) | ~17 s |
-
-Extrapolated (sequential, same machine):
-
-| Stage | Runs | Estimated |
-| --- | --- | --- |
-| `matrix_a_xgb` | 100 | ~50 min |
-| `matrix_a_lgbm` | 100 | ~25 min |
-| `matrix_b_xgb` | 100 | ~30 min |
-| `matrix_b_lgbm` | 100 | ~20 min |
-| Four main matrices | 400 | **~2 h** |
-| G3 distance-by-intensity | 240 | ~1–1.5 h |
-| G5 sensitivity (+ controls) | ~470 | ~1 h |
-| G6 group-seed robustness | 60 | ~20 min |
-| Modern-baseline slices and G2 diagnosis sweeps | hundreds | not timed; add several hours |
-
-The main paper results (four matrices + G3/G5/G6) are therefore on the order of **4–6 h** on a
-laptop-class machine, and longer on slower or busier hardware. Independent matrices can be run
-in parallel to cut wall-clock time. Set `SEEDS20`/`SEEDS10` to shorter seed lists (and
-`--dataset-a-n-samples` to a smaller value) for a fast approximation before a full run.
+`summarize_results.py` / `plot_paper_figs.py` are fast (seconds) once the matrices exist; the
+cost is dominated by the matrices and sweeps. The **full suite has not been run to completion for
+this export**, so no per-run or per-stage wall-clock numbers, and no reference hardware, are
+asserted here: timing varies strongly with CPU/GPU, RAM, Python and library versions, model
+family, `--dataset-a-n-samples`, `--cv-splits`, and how many matrices run in parallel. Budget
+hours, not minutes, for the full four-matrix plus G3/G5/G6 protocol, and measure on your own
+machine before committing to a long run. Set `SEEDS20`/`SEEDS10` to shorter seed lists (and
+`--dataset-a-n-samples` to a smaller value) for a fast approximation first, and run independent
+matrices in parallel to cut wall-clock time.
 
 ---
 
@@ -548,10 +567,12 @@ uv run pytest -q
 ```
 
 The suite covers attribution metrics, scenario generation, SECOM handling, the experiment
-matrix, ablations, statistics, and the figure helpers. Tests that need the raw SECOM files are
-skipped until `scripts/download_secom.py` has run; four exact-value regression tests are skipped
-until the `results/paper_final` archive from a full reproduction exists. Everything else runs
-offline.
+matrix, ablations, statistics, and the figure helpers. Tests that need the raw SECOM files skip
+with an explanatory reason until `scripts/download_secom.py` has run. Four figure-helper tests
+that assert exact values against the `results/paper_final` archive are marked `skipif` and skip
+when that archive is absent, because the archive is deliberately not shipped in git. A skipped
+run therefore exercises the uncovered code paths only up to the skip boundary and does **not**
+by itself re-validate the archived paper numbers. Everything else runs offline.
 
 Code quality: `uv run ruff check . --fix && uv run ruff format .`, `uv run pyright`.
 
