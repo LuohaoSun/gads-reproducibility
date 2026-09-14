@@ -530,8 +530,8 @@ in parallel to cut wall-clock time. Set `SEEDS20`/`SEEDS10` to shorter seed list
 
 ## 10. Licensing and third-party code
 
-- **Project-root license: not yet chosen.** No root `LICENSE` file is shipped with this export;
-  the licensing decision is pending.
+- **Project-root license: MIT.** See the root `LICENSE` file. This license applies to the
+  project code; vendored third-party components retain their own notices.
 - `src/shap_diff_analysis/vendor/m2oe/` is a vendored port of the upstream **M2OE** tabular
   group explainer and **keeps its upstream MIT license**
   (`src/shap_diff_analysis/vendor/m2oe/LICENSE`, Copyright (c) 2025 AIDALab-DIMES). The
