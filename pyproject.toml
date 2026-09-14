@@ -1,0 +1,120 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+name = "shap_diff_analysis"
+description = "Grouped Attribution Distribution Shift (GADS) experiments for equipment-level root-cause localization"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+
+dependencies = [
+  "numpy",
+  "scipy",
+  "pandas",
+  "pyarrow",
+  "scikit_learn",
+  "shap",
+  "xgboost",
+  "jinja2>=3.1",
+  "tabulate>=0.9.0",
+  "lightgbm>=4.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "matplotlib",
+    "seaborn",
+    "pre-commit",
+    "pytest",
+    "ruff",
+    "pyright",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shap_diff_analysis"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+include = [
+    "src",
+    "scripts",
+    "tests",
+]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    ".venv",
+]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+indent-width = 4
+src = ["src"]
+exclude = [
+    ".venv",
+    "data",
+    "results",
+    "tests",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",      # pycodestyle errors
+  "F",      # pyflakes
+  "W",      # warnings
+  "I",      # isort
+  "N",      # pep8-naming
+  "B",      # flake8-bugbear
+  "C4",     # flake8-comprehensions
+  "D",      # pydocstyle
+  "PTH",    # flake8-use-pathlib
+  "SIM",    # flake8-simplify
+  "UP",     # pyupgrade
+  "PERF",   # perflint
+  "RUF",    # ruff
+  "ANN001", # function argument type annotations
+  "ANN201", # public function return type annotations
+  "PD",     # pandas
+  "NPY",    # numpy
+]
+
+ignore = [
+  "N803",   # allow X as a variable name (sklearn)
+  "N806",   # allow X as a variable name (sklearn)
+  "RUF001",
+  "RUF002",
+  "RUF003",
+  "D100",
+  "D104",
+  "D105",
+  "D106",
+  "D203",
+  "D213",
+  "D301",
+  "D400",   # no trailing period on the docstring first line
+  "D413",   # no trailing blank line in docstrings
+  "D415",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+force-sort-within-sections = true
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
