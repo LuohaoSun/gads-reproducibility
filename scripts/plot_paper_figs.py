@@ -52,6 +52,20 @@ METHOD_MARKERS: dict[str, str] = {
     "Global-SHAP": "P",
 }
 DEFAULT_FIG1_SVG = Path("assets/fig1_framework.svg")
+# Figure lettering is sized for the printed page: the manuscript places these
+# PNG figures at 0.7-0.8\linewidth, which shrinks a 6.5 in canvas by ~40%, so
+# the in-canvas sizes below are chosen to land at 8 pt or more on paper.
+TICK_FONTSIZE = 13.5
+AXIS_LABEL_FONTSIZE = 15.0
+LEGEND_FONTSIZE = 13.5
+TITLE_FONTSIZE = 14.5
+# The bar chart carries three-line scenario ticks, so it uses a slightly
+# smaller size than the line chart to keep its tick block inside the canvas.
+FIG4_TICK_FONTSIZE = 12.5
+# Canonical output names, aligned with the manuscript display figure numbers.
+# The internal "fig2"/"g3" group labels refer to legacy figure-group labels only.
+FIG3_MRR_INTENSITY_OUTPUT_NAME = "fig3_mrr_intensity.png"
+FIG4_SEED_JACCARD_OUTPUT_NAME = "fig4_seed_jaccard.png"
 _DATASET_ALIASES: dict[str, tuple[str, ...]] = {
     "dataset_a": ("dataset_a", "dataset a", "a"),
     "dataset_b": ("dataset_b", "dataset b", "b"),
@@ -429,22 +443,28 @@ def plot_fig2_gads_seed_stability(
 
     # X-axis ticks and labels
     ax.set_xticks(range(len(ordered)))
-    ax.set_xticklabels(ordered["scenario_label"], fontsize=9.5, fontweight="500", color="#1e293b")
+    ax.set_xticklabels(ordered["scenario_label"], fontsize=FIG4_TICK_FONTSIZE, fontweight="500", color="#1e293b")
     ax.tick_params(axis="x", length=0, pad=8)
-    ax.tick_params(axis="y", labelsize=9.5, colors="#334155")
+    ax.tick_params(axis="y", labelsize=FIG4_TICK_FONTSIZE, colors="#334155")
 
     # Titles and labels
     ax.set_ylabel(
-        f"Mean Pairwise Top-{top_k} Jaccard Overlap",
-        fontsize=10.5,
+        f"Mean Pairwise Top-{top_k}\nJaccard Overlap",
+        fontsize=AXIS_LABEL_FONTSIZE,
         fontweight="bold",
         color="#0f172a",
         labelpad=8,
     )
-    ax.set_xlabel("Fault Localization Scenario", fontsize=10.5, fontweight="bold", color="#0f172a", labelpad=10)
+    ax.set_xlabel(
+        "Fault Localization Scenario",
+        fontsize=AXIS_LABEL_FONTSIZE,
+        fontweight="bold",
+        color="#0f172a",
+        labelpad=10,
+    )
     ax.set_title(
-        f"Top-{top_k} Process-Feature Ranking Overlap Across Seeds ({display_dataset})",
-        fontsize=11.5,
+        f"Top-{top_k} Process-Feature Ranking Overlap\nAcross Seeds ({display_dataset})",
+        fontsize=TITLE_FONTSIZE,
         fontweight="bold",
         color="#0f172a",
         pad=14,
@@ -467,7 +487,7 @@ def plot_fig2_gads_seed_stability(
             textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=10,
+            fontsize=FIG4_TICK_FONTSIZE,
             fontweight="bold",
             color="#0f172a",
             bbox={
@@ -486,24 +506,46 @@ def plot_fig2_gads_seed_stability(
     return output_path
 
 
-TRADEOFF_PANEL_ANNOTATIONS: tuple[dict[str, tuple[float, float]], ...] = (
+# The trade-off figure is drawn at its printed size (the manuscript includes it
+# at 0.9\linewidth), so leader labels stay at their nominal point size on paper.
+TRADEOFF_PANEL_WIDTH_INCHES = 2.75
+TRADEOFF_PANEL_HEIGHT_INCHES = 2.6
+TRADEOFF_DPI = 300
+TRADEOFF_ANNOTATION_FONTSIZE = 8.8
+TRADEOFF_TICK_FONTSIZE = 8.8
+TRADEOFF_TITLE_FONTSIZE = 9.6
+TRADEOFF_SUP_LABEL_FONTSIZE = 9.6
+
+# (x, y, horizontal alignment) leader-line anchors in data coordinates. A
+# 13-character badge covers roughly 0.45 of the axes width at this size, so the
+# anchors keep every badge clear of its neighbours and of the crowded
+# null-FAR = 1.0 cluster.
+TRADEOFF_PANEL_ANNOTATIONS: tuple[dict[str, tuple[float, float, str]], ...] = (
     {  # first panel (Dataset A): three classical methods cluster at (0.025, 1.0)
-        "GADS": (0.76, 0.22),
-        "KS-X": (0.16, 0.88),
-        "PSI-X": (0.16, 0.80),
-        "Domain-SHAP": (0.16, 0.96),
-        "Wasserstein-X": (0.48, 0.90),
-        "Global-SHAP": (0.18, 0.06),
+        "Domain-SHAP": (0.02, 0.89, "left"),
+        "Wasserstein-X": (0.97, 0.89, "right"),
+        "KS-X": (0.02, 0.77, "left"),
+        "PSI-X": (0.02, 0.65, "left"),
+        "GADS": (0.94, 0.46, "right"),
+        "Global-SHAP": (0.02, 0.34, "left"),
     },
     {  # second panel (Dataset B): cluster at (0.006-0.034, 1.0); Wasserstein-X at (0.02, 0.8)
-        "GADS": (0.78, 0.58),
-        "KS-X": (0.16, 0.88),
-        "PSI-X": (0.16, 0.80),
-        "Domain-SHAP": (0.16, 0.96),
-        "Wasserstein-X": (0.16, 0.70),
-        "Global-SHAP": (0.22, 0.06),
+        "Domain-SHAP": (0.02, 0.89, "left"),
+        "Wasserstein-X": (0.06, 0.75, "left"),
+        "KS-X": (0.02, 0.62, "left"),
+        "PSI-X": (0.02, 0.49, "left"),
+        "GADS": (0.94, 0.34, "right"),
+        "Global-SHAP": (0.02, 0.18, "left"),
     },
 )
+# The three methods that share the crowded null-FAR = 1.0 corner sit directly
+# against their markers and need no leader line; the remaining badges keep a
+# short leader back to their marker.
+TRADEOFF_LEADER_RELPOS: dict[str, tuple[float, float]] = {
+    "GADS": (1.0, 0.0),
+    "Global-SHAP": (0.0, 0.0),
+    "Wasserstein-X": (0.0, 1.0),
+}
 
 
 def plot_primary_cohort_tradeoff(
@@ -511,8 +553,10 @@ def plot_primary_cohort_tradeoff(
     *,
     output_path: Path,
 ) -> Path:
-    """Render the full-width two-panel S2 MRR vs S4-null FAR@1 trade-off figure.
+    r"""Render the two-panel S2 MRR vs S4-null FAR@1 trade-off figure.
 
+    The canvas is drawn at its printed size so the leader labels keep their
+    nominal point size when the manuscript scales the figure to 0.9\linewidth.
     Panels use direct labeled points (no legend, suptitle, or reference
     diagonal); label layouts are deterministic per panel position.
     """
@@ -520,7 +564,14 @@ def plot_primary_cohort_tradeoff(
         raise ValueError("points_by_dataset must contain at least one dataset panel")
     sns.set_theme(style="white", context="paper")
     n_panels = len(points_by_dataset)
-    fig, axes = plt.subplots(1, n_panels, figsize=(4.0 * n_panels, 4.0), sharex=True, sharey=True, dpi=300)
+    fig, axes = plt.subplots(
+        1,
+        n_panels,
+        figsize=(TRADEOFF_PANEL_WIDTH_INCHES * n_panels, TRADEOFF_PANEL_HEIGHT_INCHES),
+        sharex=True,
+        sharey=True,
+        dpi=TRADEOFF_DPI,
+    )
     if n_panels == 1:
         axes = [axes]
     for panel_index, (ax, (panel_title, points)) in enumerate(zip(axes, points_by_dataset.items(), strict=True)):
@@ -557,7 +608,7 @@ def plot_primary_cohort_tradeoff(
         ax.grid(True, linestyle="--", linewidth=0.6, color="#e2e8f0", alpha=0.8, zorder=1)
 
         # Panel title
-        ax.set_title(panel_title, fontsize=11, fontweight="bold", color="#0f172a", pad=10)
+        ax.set_title(panel_title, fontsize=TRADEOFF_TITLE_FONTSIZE, fontweight="bold", color="#0f172a", pad=6)
 
         # Draw points and annotations
         for _, row in points.iterrows():
@@ -567,45 +618,53 @@ def plot_primary_cohort_tradeoff(
             color = METHOD_COLORS.get(method, "#334e68")
             marker = METHOD_MARKERS.get(method, "o")
             is_ours = method == "GADS"
+            label_x, label_y, label_ha = label_positions[method]
+            leader_relpos = TRADEOFF_LEADER_RELPOS.get(method)
+            arrowprops = (
+                None
+                if leader_relpos is None
+                else {
+                    "arrowstyle": "->",
+                    "linewidth": 0.8,
+                    "color": color,
+                    "shrinkA": 2,
+                    "shrinkB": 3,
+                    "relpos": leader_relpos,
+                }
+            )
 
             # Point scatter with unclipped edges for boundary visibility
             ax.scatter(
                 x_val,
                 y_val,
-                s=90 if is_ours else 70,
+                s=78 if is_ours else 58,
                 color=color,
                 marker=marker,
                 edgecolor="#0f172a" if is_ours else "white",
-                linewidth=1.3 if is_ours else 1.0,
+                linewidth=1.2 if is_ours else 0.9,
                 clip_on=False,
                 zorder=4,
             )
 
-            # Elegant badge annotation
+            # Leader-line badge annotation
             ax.annotate(
                 method,
                 (x_val, y_val),
-                xytext=label_positions[method],
+                xytext=(label_x, label_y),
                 textcoords="data",
-                ha="left",
+                ha=label_ha,
                 va="center",
-                fontsize=8.8,
+                fontsize=TRADEOFF_ANNOTATION_FONTSIZE,
                 fontweight="bold" if is_ours else "500",
                 color="#1e3a8a" if is_ours else color,
                 bbox={
                     "boxstyle": "round,pad=0.25,rounding_size=0.3",
                     "facecolor": "#eff6ff" if is_ours else "#ffffff",
                     "edgecolor": "#93c5fd" if is_ours else "#cbd5e1",
-                    "linewidth": 0.85,
+                    "linewidth": 0.8,
                     "alpha": 0.95,
                 },
-                arrowprops={
-                    "arrowstyle": "->",
-                    "linewidth": 0.75,
-                    "color": color,
-                    "shrinkA": 3,
-                    "shrinkB": 4,
-                },
+                arrowprops=arrowprops,
                 zorder=5,
             )
 
@@ -616,18 +675,18 @@ def plot_primary_cohort_tradeoff(
 
     fig.supxlabel(
         "S2 Mean Reciprocal Rank (MRR)  [Higher is better $\\rightarrow$]",
-        fontsize=9.5,
+        fontsize=TRADEOFF_SUP_LABEL_FONTSIZE,
         fontweight="bold",
         color="#0f172a",
     )
     fig.supylabel(
         "S4-null Mean FAR@1  [$\\leftarrow$ Lower is better]",
-        fontsize=9.5,
+        fontsize=TRADEOFF_SUP_LABEL_FONTSIZE,
         fontweight="bold",
         color="#0f172a",
     )
     for ax in axes:
-        ax.tick_params(labelsize=8.8, colors="#334155")
+        ax.tick_params(labelsize=TRADEOFF_TICK_FONTSIZE, colors="#334155")
         ax.set_xlabel("")
         ax.set_ylabel("")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -742,12 +801,20 @@ def plot_g3_intensity_curve(
         y="mrr",
         hue="distance_label",
         marker="o",
+        markersize=7.5,
         errorbar=None,
     )
     ax.set_ylim(0.0, 1.05)
-    ax.set_xlabel("mechanism scale (injection intensity)")
-    ax.set_ylabel("MRR")
-    ax.legend(title="distance", loc="lower right")
+    ax.set_xlabel("mechanism scale (injection intensity)", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.set_ylabel("MRR", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_FONTSIZE)
+    ax.legend(
+        title="distance",
+        loc="lower right",
+        fontsize=LEGEND_FONTSIZE,
+        title_fontsize=LEGEND_FONTSIZE,
+        frameon=True,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
@@ -815,7 +882,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--fig2-output",
         type=Path,
         default=None,
-        help="Fig. 2 output path (default: <output-dir>/fig2_gads_seed_stability.png)",
+        help=(
+            "Top-5 Jaccard seed-stability output path (manuscript Figure 4; "
+            f"default: <output-dir>/{FIG4_SEED_JACCARD_OUTPUT_NAME})"
+        ),
     )
     parser.add_argument(
         "--paper-final-dir",
@@ -856,14 +926,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "merged G3 distance-by-intensity parquet (required when 'g3' is in --fig-types; "
-            "see the README section on the G3 distance-by-intensity sweep for how to build it)"
+            "e.g. results/paper_final/g3_distance_intensity/g3_distance_intensity_merged.parquet)"
         ),
     )
     parser.add_argument(
         "--g3-output",
         type=Path,
         default=None,
-        help="G3 intensity-curve output path (default: <output-dir>/fig4_g3_intensity.png)",
+        help=(
+            "MRR-versus-intensity curve output path (manuscript Figure 3; "
+            f"default: <output-dir>/{FIG3_MRR_INTENSITY_OUTPUT_NAME})"
+        ),
     )
     return parser
 
@@ -909,7 +982,7 @@ def main() -> None:
             plot_rank_stability_heatmap(rankings, top_k=args.top_k, output_path=output_dir / "rank_stability.png")
         )
     if "fig2" in selected:
-        fig2_path = args.fig2_output or (output_dir / "fig2_gads_seed_stability.png")
+        fig2_path = args.fig2_output or (output_dir / FIG4_SEED_JACCARD_OUTPUT_NAME)
         fig2_dataset = resolve_fig2_dataset(
             rankings,
             args.fig2_dataset,
@@ -953,7 +1026,7 @@ def main() -> None:
             raise ValueError("--g3-parquet is required when 'g3' is in --fig-types")
         if not args.g3_parquet.is_file():
             raise FileNotFoundError(f"g3 parquet not found: {args.g3_parquet}")
-        g3_output = args.g3_output or (output_dir / "fig4_g3_intensity.png")
+        g3_output = args.g3_output or (output_dir / FIG3_MRR_INTENSITY_OUTPUT_NAME)
         outputs["g3"] = str(plot_g3_intensity_curve(pd.read_parquet(args.g3_parquet), output_path=g3_output))
 
     print(

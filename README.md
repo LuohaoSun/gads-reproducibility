@@ -75,7 +75,7 @@ computed on the `process` view.
 
 ## 2. Requirements
 
-- Python **>= 3.10, < 3.12** (3.11 recommended).
+- Python **>= 3.11, < 3.12**.
 - [uv](https://docs.astral.sh/uv/) for dependency management. Dependencies resolve from
   **official PyPI**.
 - Optional, only for Figure 1: `rsvg-convert` from
@@ -83,7 +83,7 @@ computed on the `process` view.
   It is not a Python dependency; the figure script fails loudly if it is missing.
 
 ```bash
-uv sync                 # creates .venv with runtime + dev dependencies
+uv sync --locked        # creates .venv from the committed lockfile (runtime + dev dependencies)
 uv run python -c "import shap_diff_analysis; print('ok')"
 ```
 
@@ -347,21 +347,37 @@ uv run python scripts/plot_paper_figs.py --input-dir results/matrix
 ```
 
 Produces `main_metrics_bars.png`, `far_bars.png`, `seed_topk_jaccard.png`,
-`rank_stability.png`, `fig2_gads_seed_stability.png` in `results/matrix/figures/`.
+`rank_stability.png`, `fig4_seed_jaccard.png` in `results/matrix/figures/`.
 `--fig-types` selects groups (`bars`, `far`, `jaccard`, `rank-heatmap`, `fig2`, `fig1`,
-`tradeoff`, `g3`, `all`). `fig1` renders `assets/fig1_framework.svg` to a vector PDF and needs
-`rsvg-convert`; `g3` needs the merged G3 sensitivity table via `--g3-parquet`.
+`tradeoff`, `g3`, `all`); the `fig2` group writes `fig4_seed_jaccard.png`, and the `g3` group
+writes `fig3_mrr_intensity.png`. `fig1` renders `assets/fig1_framework.svg` to a vector PDF and
+needs `rsvg-convert`; `g3` needs the merged G3 sensitivity table via `--g3-parquet`.
 
 **Figures need results first.** `summarize_results.py` must have produced
 `stats/stats_summary.parquet`, and the matrix must contain `aggregate/metrics.parquet` and
 `aggregate/rankings.parquet`; the trade-off figure additionally reads the `stats_summary.parquet`
 of a second matrix resolved from `--paper-final-dir` (or the parent of `--input-dir`).
 
+### Case-study figure (Figure 5)
+
+```bash
+uv run python scripts/plot_case_study_figure.py --output-dir results/figures
+```
+
+Recomputes the S2/seed-0 mechanism-shift case study from the generator and model entry points
+(no cached image and no archived aggregate table) and writes `fig5_case_study.png`: raw feature
+densities for the abnormal equipment versus the normal pool, OOF SHAP densities, the GADS process
+ranking, and the separate EQP attribution channel. Options: `--output-dir` (required),
+`--output-name` (default `fig5_case_study.png`), `--n-samples` (default `5000`), `--seed`
+(default `0`). See [Case-study reproduction](#case-study-reproduction-figure-5) for the numeric
+reproduction.
+
 ### Manuscript figure bundle
 
 `scripts/build_isa_figures.py` renders the four manuscript-facing assets
-(`fig1_framework.pdf`, `tradeoff_primary_cohort.pdf`, `fig2.png`, `fig4.png`) into one output
-directory. It requires `rsvg-convert` and an archive directory laid out as:
+(`fig1_framework.pdf`, `tradeoff_primary_cohort.pdf`, `fig3_mrr_intensity.png`,
+`fig4_seed_jaccard.png`) into one output directory. It requires `rsvg-convert` and an archive
+directory laid out as:
 
 ```
 <archive>/matrix_a_xgb/{aggregate/{metrics,rankings}.parquet,stats/stats_summary.parquet}
@@ -401,6 +417,73 @@ used for median imputation and location/scale — not the KPI model's CV train f
 indicators **excluded** (`--no-dataset-b-include-missing-indicators`); injected faults (in
 standardized units) `physical_shift 3.0`, `mechanism_weight 12.0`, `harmless_shift 4.0`;
 `group_seed 2024`; XGBoost/LightGBM with `--min-child-weight 5 --max-depth 3`.
+
+### Case-study reproduction (Figure 5)
+
+```bash
+uv run python scripts/reproduce_case_study.py
+uv run python scripts/plot_case_study_figure.py --output-dir results/figures
+```
+
+`reproduce_case_study.py` recomputes the Dataset A / S2 / seed-0 case study from the repository's
+own generator and model entry points (n=5000, XGBoost, 5-fold cross-fitting) rather than reading
+an archived aggregate table. It prints a reproduced-versus-manuscript comparison table and exits
+non-zero when any value falls outside the quoted precision (KS statistic and p-value, abnormal and
+normal OOF SHAP standard deviations, Wasserstein distance, and the GADS rank). It writes nothing to
+disk. `plot_case_study_figure.py` renders the four-panel `fig5_case_study.png`; see
+[Case-study figure (Figure 5)](#case-study-figure-figure-5) for its options.
+
+### Revision experiment packs (Packs 1–3)
+
+Three self-contained scripts (they import `src/` but do not modify it) regenerate the revision
+experiments. Each writes CSV, JSON and `summary.md` under `results/bdcc_revision/`, and each
+accepts `--help` for the complete flag list. All three take `--workers` for process-level
+parallelism; start below the physical core count because every worker also uses one XGBoost
+thread.
+
+**Pack 1 — seeds, hyperparameters and stability**
+
+```bash
+uv run python scripts/bdcc_pack1_seeds_and_hyperparams.py \
+  --output-dir results/bdcc_revision/pack1_seeds_hyperparams
+```
+
+Covers model/CV seed stability, the hyperparameter grid, the missingness-indicator ablation, the
+scale-artifact check, and paired BCa confidence intervals. Key flags: `--datasets {a,b}`,
+`--scenarios`, `--scenario-seeds`, `--model-seeds`, `--workers`, `--bootstrap-samples`,
+`--permutation-samples`, `--top-k`. Results are checkpointed per task and reruns resume completed
+tasks by default; `--fresh` deletes existing checkpoints, and `--summary-only` rebuilds the tables,
+JSON and `summary.md` from existing checkpoints without fitting anything.
+
+**Pack 2 — competitors and runtime**
+
+```bash
+uv run python scripts/bdcc_pack2_competitors_and_runtime.py \
+  --output results/bdcc_revision/pack2_competitors_runtime
+```
+
+Adds the interaction-term baselines (GLM-Int, GAM-Int, TreeSHAP-Int), Explanation-Space
+Domain-SHAP, and an isolated single-run wall-clock/peak-RSS benchmark. Key flags:
+`--datasets {dataset_a,dataset_b}`, `--scenarios`, `--seeds`, `--workers`, `--interaction-threads`,
+`--stages {comparison,runtime,m2oe-caps,glm-extra}`, `--runtime-seeds`, `--runtime-scenario`,
+`--runtime-methods`, `--m2oe-caps`, `--no-memory-pass`, `--no-self-check`. Cached per-run outputs
+are reused by default (`--no-resume` recomputes them); `--summary-only` rebuilds the tables from
+cached outputs, and repeatable `--note` entries are appended to `summary.md`.
+
+**Pack 3 — diagnostics and Dataset B sweeps**
+
+```bash
+uv run python scripts/bdcc_pack3_diagnostics_and_bsweep.py \
+  --output-dir results/bdcc_revision/pack3_diagnostics_bsweep
+```
+
+Computes tree-split diagnostics, the leakage-safe within-EQP centering check, the post-hoc
+permutation reference threshold (including the `S0-clean` calibration scenario), and the Dataset B
+fault/harmless-shift intensity sweeps. Key flags: `--datasets {a,b}`, `--scenarios` (default all
+six, including `S0-clean`), `--scenario-seeds`, `--workers`, `--n-permutations`,
+`--background-size`. Existing partial results are reused (`--force` ignores them),
+`--reaggregate` rebuilds CSV/JSON/markdown from existing partials without fitting, and `--dry-run`
+prints the task plan.
 
 ### Main matrices (4 × 100 runs)
 
@@ -570,12 +653,13 @@ uv run pytest -q
 ```
 
 The suite covers attribution metrics, scenario generation, SECOM handling, the experiment
-matrix, ablations, statistics, and the figure helpers. Tests that need the raw SECOM files skip
-with an explanatory reason until `scripts/download_secom.py` has run. Four figure-helper tests
-that assert exact values against the `results/paper_final` archive are marked `skipif` and skip
-when that archive is absent, because the archive is deliberately not shipped in git. A skipped
-run therefore exercises the uncovered code paths only up to the skip boundary and does **not**
-by itself re-validate the archived paper numbers. Everything else runs offline.
+matrix, ablations, statistics, the case-study reproduction (small-scale checks of the same
+functions used by `scripts/reproduce_case_study.py`), and the figure helpers. Tests that need the
+raw SECOM files skip with an explanatory reason until `scripts/download_secom.py` has run. Four
+figure-helper tests that assert exact values against the `results/paper_final` archive are marked
+`skipif` and skip when that archive is absent, because the archive is deliberately not shipped in
+git. A skipped run therefore exercises the uncovered code paths only up to the skip boundary and
+does **not** by itself re-validate the archived paper numbers. Everything else runs offline.
 
 Code quality: `uv run ruff check . --fix && uv run ruff format .`, `uv run pyright`.
 
@@ -595,9 +679,14 @@ scripts/
   assemble_experiment_matrix.py      # merge partial run directories
   summarize_results.py               # bootstrap CIs, paired tests, Holm correction
   plot_paper_figs.py                 # standard paper figures
+  plot_case_study_figure.py          # four-panel case-study figure (Figure 5)
+  reproduce_case_study.py            # numeric case-study reproduction (Figure 5)
   build_isa_figures.py               # four manuscript figure assets
+  bdcc_pack1_seeds_and_hyperparams.py  # revision pack 1: seeds + hyperparameters
+  bdcc_pack2_competitors_and_runtime.py  # revision pack 2: competitors + runtime
+  bdcc_pack3_diagnostics_and_bsweep.py   # revision pack 3: diagnostics + Dataset B sweeps
 src/shap_diff_analysis/              # method, baselines, metrics, statistics, data generation
-tests/                               # pytest suite
+tests/                               # pytest suite (incl. test_reproduce_case_study.py)
 ```
 
 | Script | Purpose |
@@ -610,5 +699,10 @@ tests/                               # pytest suite
 | `run_sensitivity_sweep.py` | G3/G5 single-factor sweeps |
 | `assemble_experiment_matrix.py` | assemble a matrix from partial runs |
 | `summarize_results.py` | bootstrap CIs, paired tests, Holm correction |
-| `plot_paper_figs.py` | main metrics, FAR, seed stability, rank heatmap, trade-off, Fig. 1/2 |
+| `plot_paper_figs.py` | main metrics, FAR, seed stability, rank heatmap, trade-off, Fig. 1/3/4 |
+| `plot_case_study_figure.py` | four-panel case-study figure (Figure 5) |
+| `reproduce_case_study.py` | numerical case-study reproduction (Figure 5) |
 | `build_isa_figures.py` | build the four manuscript assets from an archive |
+| `bdcc_pack1_seeds_and_hyperparams.py` | revision pack 1: seed stability, hyperparameters, missingness ablation, BCa CIs |
+| `bdcc_pack2_competitors_and_runtime.py` | revision pack 2: interaction-term baselines, Explanation-Space Domain-SHAP, runtime/RSS |
+| `bdcc_pack3_diagnostics_and_bsweep.py` | revision pack 3: tree-split diagnostics, permutation threshold, Dataset B sweeps |
