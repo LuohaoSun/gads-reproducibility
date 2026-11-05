@@ -17,7 +17,12 @@ if str(ROOT) not in sys.path:
 build_isa_figures: ModuleType = importlib.import_module("scripts.build_isa_figures")
 plot_paper_figs: ModuleType = importlib.import_module("scripts.plot_paper_figs")
 
-REQUIRED_OUTPUT_NAMES = ("fig1_framework.pdf", "tradeoff_primary_cohort.pdf", "fig2.png", "fig4.png")
+REQUIRED_OUTPUT_NAMES = (
+    "fig1_framework.pdf",
+    "tradeoff_primary_cohort.pdf",
+    "fig3_mrr_intensity.png",
+    "fig4_seed_jaccard.png",
+)
 
 
 def _tradeoff_summary(dataset: str, mrr_shift: float) -> pd.DataFrame:
@@ -76,8 +81,8 @@ def test_plan_build_maps_exactly_four_manuscript_assets(tmp_path: Path) -> None:
     assert tuple(plan.output_dir / name for name in REQUIRED_OUTPUT_NAMES) == (
         plan.output_dir / "fig1_framework.pdf",
         plan.output_dir / "tradeoff_primary_cohort.pdf",
-        plan.output_dir / "fig2.png",
-        plan.output_dir / "fig4.png",
+        plan.output_dir / "fig3_mrr_intensity.png",
+        plan.output_dir / "fig4_seed_jaccard.png",
     )
     assert [name for name, _ in build_isa_figures.BUILD_STEPS] == list(REQUIRED_OUTPUT_NAMES)
     assert plan.archive_dir == repo_root / "results/paper_final"
@@ -146,8 +151,8 @@ def test_run_build_produces_exactly_four_assets_with_mocks(
     assert rendered == [(plan.fig1_svg, plan.output_dir / "fig1_framework.pdf")]
     tradeoff_pdf = figures["tradeoff_primary_cohort.pdf"]
     assert tradeoff_pdf.suffix == ".pdf"
-    assert figures["fig2.png"].suffix == ".png"
-    assert figures["fig4.png"].suffix == ".png"
+    assert figures["fig3_mrr_intensity.png"].suffix == ".png"
+    assert figures["fig4_seed_jaccard.png"].suffix == ".png"
 
 
 def test_cli_parser_requires_output_dir(capsys: pytest.CaptureFixture[str]) -> None:

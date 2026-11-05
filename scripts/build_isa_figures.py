@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Build the four generated CAS manuscript figures into an arbitrary output directory.
+"""Build the four generated manuscript figures into an arbitrary output directory.
 
-Produces exactly ``fig1_framework.pdf``, ``tradeoff_primary_cohort.pdf``, ``fig2.png``
-and ``fig4.png`` by reusing the render/generation helpers in ``scripts.plot_paper_figs``
-against the archived experiment outputs. The build fails explicitly (no silent
+Produces exactly ``fig1_framework.pdf``, ``tradeoff_primary_cohort.pdf``,
+``fig3_mrr_intensity.png`` and ``fig4_seed_jaccard.png`` by reusing the
+render/generation helpers in ``scripts.plot_paper_figs`` against the archived
+experiment outputs. Output names follow the manuscript display numbers rather
+than the legacy figure-group labels. The build fails explicitly (no silent
 fallback) when ``rsvg-convert`` or any required input table is unavailable.
 """
 
@@ -39,13 +41,13 @@ from scripts.plot_paper_figs import (  # noqa: E402
 DEFAULT_ARCHIVE_RELPATH = Path("results/paper_final")
 FIG1_OUTPUT_NAME = "fig1_framework.pdf"
 TRADEOFF_OUTPUT_NAME = "tradeoff_primary_cohort.pdf"
-FIG2_OUTPUT_NAME = "fig2.png"
-FIG4_OUTPUT_NAME = "fig4.png"
+FIG3_MRR_INTENSITY_OUTPUT_NAME = "fig3_mrr_intensity.png"
+FIG4_SEED_JACCARD_OUTPUT_NAME = "fig4_seed_jaccard.png"
 REQUIRED_OUTPUT_NAMES: tuple[str, ...] = (
     FIG1_OUTPUT_NAME,
     TRADEOFF_OUTPUT_NAME,
-    FIG2_OUTPUT_NAME,
-    FIG4_OUTPUT_NAME,
+    FIG3_MRR_INTENSITY_OUTPUT_NAME,
+    FIG4_SEED_JACCARD_OUTPUT_NAME,
 )
 TRADEOFF_PANEL_RELPATHS: tuple[tuple[str, Path], ...] = (
     ("Dataset A", Path("matrix_a_xgb/stats/stats_summary.parquet")),
@@ -140,33 +142,35 @@ def build_tradeoff(plan: FigureBuildPlan) -> Path:
 
 
 def load_fig2_rankings(metrics_path: Path, rankings_path: Path) -> pd.DataFrame:
-    """Load valid-run-filtered rankings backing the Fig. 2 stability chart."""
+    """Load valid-run-filtered rankings backing the Top-5 Jaccard stability chart (Figure 4)."""
     metrics = load_experiment_metrics(metrics_path)
     return load_experiment_rankings(rankings_path, metrics=metrics)
 
 
-def build_fig2(plan: FigureBuildPlan) -> Path:
-    """Render the GADS process-view Top-K seed-stability bar chart PNG."""
+def build_fig4_seed_jaccard(plan: FigureBuildPlan) -> Path:
+    """Render the GADS process-view Top-K seed-stability bar chart PNG (Figure 4)."""
     rankings = load_fig2_rankings(plan.fig2_metrics, plan.fig2_rankings)
     dataset = resolve_fig2_dataset(rankings, None, explicit=False)
     return plot_fig2_gads_seed_stability(
         rankings,
-        output_path=plan.output_dir / FIG2_OUTPUT_NAME,
+        output_path=plan.output_dir / FIG4_SEED_JACCARD_OUTPUT_NAME,
         dataset=dataset,
         top_k=FIG2_TOP_K,
     )
 
 
-def build_fig4(plan: FigureBuildPlan) -> Path:
-    """Render the GADS MRR versus mechanism-scale intensity curve PNG."""
-    return plot_g3_intensity_curve(pd.read_parquet(plan.g3_parquet), output_path=plan.output_dir / FIG4_OUTPUT_NAME)
+def build_fig3_mrr_intensity(plan: FigureBuildPlan) -> Path:
+    """Render the GADS MRR versus mechanism-scale intensity curve PNG (Figure 3)."""
+    return plot_g3_intensity_curve(
+        pd.read_parquet(plan.g3_parquet), output_path=plan.output_dir / FIG3_MRR_INTENSITY_OUTPUT_NAME
+    )
 
 
 BUILD_STEPS: tuple[tuple[str, Callable[[FigureBuildPlan], Path]], ...] = (
     (FIG1_OUTPUT_NAME, build_fig1),
     (TRADEOFF_OUTPUT_NAME, build_tradeoff),
-    (FIG2_OUTPUT_NAME, build_fig2),
-    (FIG4_OUTPUT_NAME, build_fig4),
+    (FIG3_MRR_INTENSITY_OUTPUT_NAME, build_fig3_mrr_intensity),
+    (FIG4_SEED_JACCARD_OUTPUT_NAME, build_fig4_seed_jaccard),
 )
 
 
