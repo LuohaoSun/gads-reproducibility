@@ -488,7 +488,7 @@ prints the task plan.
 
 ### Supplementary experiments
 
-Three supplementary scripts are documented separately because their prerequisites differ:
+The supplementary scripts are documented separately because their prerequisites differ:
 
 - `scripts/bdcc_internal_review_existing_stats.py` recomputes 95% BCa intervals from the Pack 1 and
   Pack 2 output tables. It fits nothing, but it **cannot run on a clean clone**: its nine input CSVs
@@ -499,6 +499,23 @@ Three supplementary scripts are documented separately because their prerequisite
   on Dataset A: 5 scenarios x 20 seeds x 3 methods.
 - `scripts/bdcc_internal_review_null_weak.py` runs the S0-clean null calibration and the weak
   Dataset B intensity sweep. It requires the verified SECOM files in `data/raw/secom`.
+
+Two further groups support the null-distribution and baseline-rerun analyses:
+
+- `scripts/bdcc_label_permutation_null.py` draws the label-permutation null one
+  (dataset, scenario) cell at a time; `scripts/bdcc_label_permutation_null_run.py` dispatches the
+  cells in parallel and writes the same `null_permutations.csv` / `null_summary.csv` layout, and
+  `scripts/bdcc_merge_null_units.py` merges the per-unit draws. `scripts/bdcc_real_vs_null.py` and
+  `scripts/bdcc_real_vs_null_paired.py` then compare the observed per-run maximum GADS statistic
+  with that null, unpaired and paired by scenario seed; both read the Pack 1 ranking sweep, so they
+  run after Pack 1 and the null. The parallel driver here exists because the serial script walks
+  its cells one at a time, which leaves most cores idle.
+- `scripts/bdcc_rerun_physical_baselines.sh` reruns the four physical/explanation baselines
+  (KS-X, PSI-X, Domain-SHAP, Wasserstein-X) on Dataset B under the all-feature construction, so
+  every column of the Dataset B baseline table comes from one construction rather than two. One
+  process per scenario seed; the per-seed tables merge into `merged_metrics.csv`.
+  `scripts/bdcc_plot_hyperparameter_effect.py` draws the hyperparameter-grid figure from the Pack 1
+  output.
 
 [`docs/supplementary_experiments.md`](docs/supplementary_experiments.md) gives the exact commands,
 formulas, statistical units, output layouts and small local validation options. No supplementary
@@ -709,6 +726,13 @@ scripts/
   bdcc_internal_review_existing_stats.py # supplementary: recompute existing-result statistics
   bdcc_internal_review_nonlinear.py      # supplementary: nonlinear-label RSM v2 benchmark
   bdcc_internal_review_null_weak.py      # supplementary: S0-clean null + weak Dataset B sweep
+  bdcc_label_permutation_null.py         # supplementary: label-permutation null, one cell at a time
+  bdcc_label_permutation_null_run.py     # supplementary: parallel driver for the null cells
+  bdcc_merge_null_units.py               # supplementary: merge per-unit null draws
+  bdcc_real_vs_null.py                   # supplementary: observed statistic vs the null
+  bdcc_real_vs_null_paired.py            # supplementary: paired version, one row per cell
+  bdcc_rerun_physical_baselines.sh       # supplementary: four baselines on Dataset B, one construction
+  bdcc_plot_hyperparameter_effect.py     # supplementary: hyperparameter-grid figure
 src/shap_diff_analysis/              # method, baselines, metrics, statistics, data generation
 tests/                               # pytest suite (incl. test_reproduce_case_study.py)
 ```
@@ -733,3 +757,10 @@ tests/                               # pytest suite (incl. test_reproduce_case_s
 | `bdcc_internal_review_existing_stats.py` | supplementary: BCa statistics over existing Pack 1/Pack 2 tables |
 | `bdcc_internal_review_nonlinear.py` | supplementary: nonlinear-label RSM v2 benchmark on Dataset A |
 | `bdcc_internal_review_null_weak.py` | supplementary: S0-clean null calibration and weak Dataset B intensity sweep |
+| `bdcc_label_permutation_null.py` | supplementary: label-permutation null distribution, serial |
+| `bdcc_label_permutation_null_run.py` | supplementary: same null, one subprocess per cell |
+| `bdcc_merge_null_units.py` | supplementary: merge per-unit permutation draws into one table |
+| `bdcc_real_vs_null.py` | supplementary: observed maximum statistic against the null |
+| `bdcc_real_vs_null_paired.py` | supplementary: paired-by-scenario-seed version of the same comparison |
+| `bdcc_rerun_physical_baselines.sh` | supplementary: rerun the four physical baselines on Dataset B under the all-feature construction |
+| `bdcc_plot_hyperparameter_effect.py` | supplementary: hyperparameter-grid figure from the Pack 1 output |
